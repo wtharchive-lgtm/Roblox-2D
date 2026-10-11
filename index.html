@@ -24,22 +24,26 @@
   .jump-button { pointer-events: auto; touch-action: none; position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(35px, env(safe-area-inset-bottom)); width: 94px; height: 94px; border-radius: 50%; border: 2px solid #ffffffdc; background: #2476dfc9; color: #fff; font-size: 17px; font-weight: 800; letter-spacing: .6px; box-shadow: 0 5px 18px #0004, inset 0 0 0 4px #ffffff20; }
   .jump-button:active { background: #4b99ffed; transform: scale(.96); }
   .rotate-hint { position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(140px, calc(env(safe-area-inset-bottom) + 140px)); color: #ffffffb5; font-size: 11px; text-shadow: 0 1px 3px #000; }
+  .name-panel { position: fixed; z-index: 6; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px; border: 1px solid #ffffff55; border-radius: 10px; background: #111827bd; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); max-width: min(52vw, 340px); }
+  .name-panel label { color: #fff; font-size: 11px; white-space: nowrap; }
+  #characterName { width: clamp(90px, 17vw, 190px); min-width: 0; border: 1px solid #ffffff44; border-radius: 6px; padding: 7px 8px; color: #fff; background: #0b1020dd; font: inherit; font-size: 12px; user-select: text; -webkit-user-select: text; touch-action: auto; }
   .reset-button { position: fixed; z-index: 6; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); border: 1px solid #ffffff55; border-radius: 10px; padding: 9px 12px; color: white; background: #111827bd; font-size: 12px; }
   .reset-button:active { background: #36445c; }
   @media (pointer: coarse), (max-width: 800px) { .touch-controls { display: block; } }
-  @media (max-width: 480px) { .asset-tools button { padding: 7px 8px; font-size: 10px; } .joystick-area { width: 126px; height: 126px; } .joystick-knob { width: 52px; height: 52px; } .jump-button { width: 82px; height: 82px; font-size: 15px; } .rotate-hint { bottom: max(125px, calc(env(safe-area-inset-bottom) + 125px)); } }
+  @media (max-width: 480px) { .name-panel { top: max(58px, calc(env(safe-area-inset-top) + 56px)); max-width: 72vw; } .asset-tools button { padding: 7px 8px; font-size: 10px; } .joystick-area { width: 126px; height: 126px; } .joystick-knob { width: 52px; height: 52px; } .jump-button { width: 82px; height: 82px; font-size: 15px; } .rotate-hint { bottom: max(125px, calc(env(safe-area-inset-bottom) + 125px)); } }
 </style>
 </head>
 <body>
 <canvas id="game" aria-label="2D Roblox prototype game area"></canvas>
 <div class="asset-tools" aria-label="Asset controls">
   <button id="chooseAssetsButton" type="button">Load assets</button>
-  <button id="chooseFilesButton" type="button">Choose PNGs</button>
-  <input id="assetPicker" type="file" accept="image/png,image/*" multiple webkitdirectory directory />
-  <input id="assetFilesPicker" type="file" accept="image/png,image/*" multiple />
+  <button id="chooseFilesButton" type="button">Choose files</button>
+  <input id="assetPicker" type="file" multiple webkitdirectory directory />
+  <input id="assetFilesPicker" type="file" accept="image/*,audio/mpeg,audio/mp3,.mp3" multiple />
 </div>
 <span id="assetStatus" role="status">Loading PNG assets…</span>
 <span id="assetWarning" role="status"></span>
+<div class="name-panel"><label for="characterName">Name</label><input id="characterName" type="text" maxlength="20" placeholder="Noob" value="Noob" autocomplete="off" /></div>
 <button class="reset-button" id="resetButton" type="button">Reset player</button>
 <div class="touch-controls" aria-label="Touch controls">
   <div class="joystick-area" id="joystick" aria-label="Movement joystick">
@@ -64,6 +68,7 @@
   const joystickKnob = document.getElementById('joystickKnob');
   const jumpButton = document.getElementById('jumpButton');
   const resetButton = document.getElementById('resetButton');
+  const characterNameInput = document.getElementById('characterName');
 
   const assetPaths = {
     baseplate: 'Assets/Background/Baseplate.png',
@@ -74,25 +79,29 @@
     jumpFront: 'Assets/Noob/JumpFront.png',
     jumpBack: 'Assets/Noob/JumpBack.png'
   };
+  const soundPaths = { walk: 'Assets/Sounds/walk.mp3', jump: 'Assets/Sounds/jump.mp3', oof: 'Assets/Sounds/oof.mp3' };
   const images = {};
+  const sounds = {};
   const loadedAssets = new Set();
   const failedAssets = new Map();
   const objectUrls = new Map();
 
   function updateAssetStatus() {
-    const count = loadedAssets.size;
-    if (count === 7) {
-      assetStatus.style.display = 'none';
+    const imageCount = [...loadedAssets].filter(key => !key.startsWith('sound:')).length;
+    const soundCount = [...loadedAssets].filter(key => key.startsWith('sound:')).length;
+    assetStatus.style.display = imageCount === 7 ? 'none' : 'block';
+    if (imageCount !== 7) {
+      assetStatus.textContent = `Images: ${imageCount}/7 loaded. Use Load assets or Choose files if needed.`;
+    }
+    if (failedAssets.size) {
+      warning.style.display = 'block';
+      warning.textContent = 'Missing/unreadable: ' + [...failedAssets.values()].join(', ');
+    } else {
       warning.style.display = 'none';
       warning.textContent = '';
-    } else {
-      assetStatus.style.display = 'block';
-      assetStatus.textContent = `Assets: ${count}/7 loaded. Use Load assets or Choose PNGs if needed.`;
-      if (failedAssets.size) {
-        warning.style.display = 'block';
-        warning.textContent = 'Missing/unreadable: ' + [...failedAssets.values()].join(', ');
-      }
     }
+    // Keep the sound count available for debugging without showing a permanent popup.
+    assetStatus.dataset.sounds = `${soundCount}/3`;
   }
 
   function setAssetSource(key, source, label) {
@@ -116,6 +125,44 @@
   }
   Object.entries(assetPaths).forEach(([key, path]) => loadAsset(key, path));
 
+  function setSoundSource(key, source, label) {
+    const audio = new Audio();
+    audio.preload = 'auto';
+    if (key === 'walk') audio.loop = true;
+    audio.src = source;
+    audio.addEventListener('canplaythrough', () => { loadedAssets.add('sound:' + key); failedAssets.delete('sound:' + key); updateSoundStatus(); }, { once: true });
+    audio.addEventListener('error', () => { loadedAssets.delete('sound:' + key); failedAssets.set('sound:' + key, label || soundPaths[key]); updateSoundStatus(); }, { once: true });
+    sounds[key] = audio;
+    audio.load();
+  }
+  function updateSoundStatus() { updateAssetStatus(); }
+
+  Object.entries(soundPaths).forEach(([key, path]) => setSoundSource(key, path, path));
+
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    // Playback is started only in response to a user gesture, as required by mobile browsers.
+    Object.values(sounds).forEach(audio => { try { audio.load(); } catch (_) {} });
+  }
+  function playSound(key) {
+    const audio = sounds[key];
+    if (!audio) return;
+    unlockAudio();
+    if (key !== 'walk') { try { audio.currentTime = 0; } catch (_) {} }
+    const promise = audio.play();
+    if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+  }
+  function updateWalkSound(isWalking) {
+    const audio = sounds.walk;
+    if (!audio) return;
+    if (isWalking) {
+      unlockAudio();
+      if (audio.paused) { const promise = audio.play(); if (promise && promise.catch) promise.catch(() => {}); }
+    } else if (!audio.paused) { audio.pause(); try { audio.currentTime = 0; } catch (_) {} }
+  }
+
   // The HTML might be opened from Downloads or an Android file viewer, away from
   // the Assets directory. Let the player select the Assets folder (or select the
   // PNG files manually in browsers that do not support folder selection).
@@ -126,7 +173,8 @@
     if (!files.length) return;
     const normalize = value => String(value || '').replace(/\\/g, '/').toLowerCase();
     const missing = [];
-    for (const [key, path] of Object.entries(assetPaths)) {
+    const allPaths = { ...assetPaths, ...soundPaths };
+    for (const [key, path] of Object.entries(allPaths)) {
       const expected = path.replace(/^assets\//i, '').toLowerCase();
       const file = files.find(candidate => {
         const rel = normalize(candidate.webkitRelativePath || candidate.name);
@@ -134,18 +182,21 @@
       });
       if (!file) {
         missing.push(expected);
-        failedAssets.set(key, expected);
+        failedAssets.set(key.startsWith('sound:') ? key : (soundPaths[key] ? 'sound:' + key : key), expected);
         continue;
       }
-      const oldUrl = objectUrls.get(key);
+      const isSound = Object.prototype.hasOwnProperty.call(soundPaths, key);
+      const storageKey = isSound ? 'sound:' + key : key;
+      const oldUrl = objectUrls.get(storageKey);
       if (oldUrl) URL.revokeObjectURL(oldUrl);
       const url = URL.createObjectURL(file);
-      objectUrls.set(key, url);
-      setAssetSource(key, url, expected);
+      objectUrls.set(storageKey, url);
+      if (isSound) setSoundSource(key, url, expected);
+      else setAssetSource(key, url, expected);
     }
     if (missing.length) {
       warning.style.display = 'block';
-      warning.textContent = 'Not found in selection: ' + missing.join(', ') + '. Select the Assets folder containing Noob and Background.';
+      warning.textContent = 'Not found in selection: ' + missing.join(', ') + '. Select the Assets folder containing Noob, Background, and Sounds.';
     }
     updateAssetStatus();
   }
@@ -184,9 +235,10 @@
   const MIN_Y = 0.12, MAX_Y = 0.91;
 
   function getInput() {
-    let x = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0) + joy.x;
-    // W / joystick-up approach the camera (larger sprite and lower screen position).
-    let y = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0) + joy.y;
+    // PC remap: A approaches the camera, W moves away, S moves left, D moves right.
+    // Arrow keys retain conventional directions; the touch joystick is unchanged.
+    let x = (keys.d || keys.arrowright ? 1 : 0) - (keys.s || keys.arrowleft ? 1 : 0) + joy.x;
+    let y = (keys.a || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0) + joy.y;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     return { x, y };
@@ -208,6 +260,7 @@
 
   function startJump() {
     if (player.jumping) return;
+    playSound('jump');
     const input = getInput();
     updateFacing(input); // handles a direction + Space pressed almost simultaneously
     player.jumping = true;
@@ -216,6 +269,7 @@
   }
 
   function resetPlayer() {
+    playSound('oof');
     player.x = 0.5;
     player.y = 0.57;
     player.facing = 'front';
@@ -232,8 +286,10 @@
 
   function normalKey(key) { return key.length === 1 ? key.toLowerCase() : key.toLowerCase(); }
   window.addEventListener('keydown', event => {
+    unlockAudio();
     const key = normalKey(event.key);
-    if (['w','a','s','d',' ','arrowup','arrowdown','arrowleft','arrowright'].includes(key)) event.preventDefault();
+    if (['w','a','s','d',' ','arrowup','arrowdown','arrowleft','arrowright'].includes(key) && document.activeElement !== characterNameInput) event.preventDefault();
+    if (document.activeElement === characterNameInput) return;
     if (key === ' ' && !event.repeat) { keys.space = true; startJump(); return; }
     if (['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)) {
       keys[key] = true;
@@ -267,6 +323,7 @@
     updateFacing(getInput());
   }
   joystick.addEventListener('pointerdown', event => {
+    unlockAudio();
     event.preventDefault();
     joy.active = true;
     joy.pointerId = event.pointerId;
@@ -289,54 +346,15 @@
   joystick.addEventListener('pointerup', releaseJoystick);
   joystick.addEventListener('pointercancel', releaseJoystick);
   joystick.addEventListener('lostpointercapture', releaseJoystick);
-  jumpButton.addEventListener('pointerdown', event => { event.preventDefault(); startJump(); });
+  jumpButton.addEventListener('pointerdown', event => { unlockAudio(); event.preventDefault(); startJump(); });
+  characterNameInput.addEventListener('keydown', event => event.stopPropagation());
   jumpButton.addEventListener('contextmenu', event => event.preventDefault());
-
-  function drawFallbackBaseplate() {
-    ctx.fillStyle = '#729b50';
-    ctx.fillRect(0, 0, viewW, viewH);
-    const size = Math.max(24, Math.min(viewW, viewH) / 18);
-    ctx.strokeStyle = '#d5e5b744';
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= viewW; x += size) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, viewH); ctx.stroke();
-    }
-    for (let y = 0; y <= viewH; y += size) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(viewW, y); ctx.stroke();
-    }
-  }
 
   function getSpriteHeight() {
     // Larger character, while preserving the 954x1184 image ratio. The sprite
     // gets distinctly larger as its depth position approaches the camera.
     const base = Math.min(viewH * 0.46, viewW * 0.69);
     return base * (0.76 + player.y * 0.66);
-  }
-
-  function drawFallbackNoob(cx, feetY, width, height, jumpOffset) {
-    const top = feetY - jumpOffset - height;
-    const headH = height * 0.25;
-    const torsoH = height * 0.34;
-    const limbW = width * 0.20;
-    ctx.save();
-    ctx.translate(cx, top);
-    ctx.fillStyle = '#f2c84b';
-    ctx.fillRect(-width * 0.22, 0, width * 0.44, headH);
-    ctx.fillStyle = '#1689d7';
-    ctx.fillRect(-width * 0.25, headH + height * 0.025, width * 0.5, torsoH);
-    ctx.fillStyle = '#f2c84b';
-    ctx.fillRect(-width * 0.25 - limbW * 0.62, headH + height * 0.04, limbW * 0.62, torsoH * 0.92);
-    ctx.fillRect(width * 0.25, headH + height * 0.04, limbW * 0.62, torsoH * 0.92);
-    ctx.fillStyle = '#4c5db5';
-    ctx.fillRect(-width * 0.23, headH + torsoH + height * 0.035, width * 0.19, height * 0.34);
-    ctx.fillRect(width * 0.04, headH + torsoH + height * 0.035, width * 0.19, height * 0.34);
-    if (player.facing !== 'back') {
-      ctx.fillStyle = '#222';
-      ctx.fillRect(-width * 0.13, headH * 0.37, width * 0.055, height * 0.025);
-      ctx.fillRect(width * 0.075, headH * 0.37, width * 0.055, height * 0.025);
-      ctx.fillRect(-width * 0.07, headH * 0.68, width * 0.14, height * 0.025);
-    }
-    ctx.restore();
   }
 
   let previousTime = performance.now();
@@ -363,7 +381,9 @@
       const bw = bg.naturalWidth * scale, bh = bg.naturalHeight * scale;
       ctx.drawImage(bg, (viewW - bw) / 2, (viewH - bh) / 2, bw, bh);
     } else {
-      drawFallbackBaseplate();
+      // Keep a plain background while the real baseplate PNG loads; no placeholder art.
+      ctx.fillStyle = '#151a22';
+      ctx.fillRect(0, 0, viewW, viewH);
     }
 
     const spriteHeight = getSpriteHeight();
@@ -384,10 +404,26 @@
     const sprite = images[spriteKey];
     if (sprite && sprite.complete && sprite.naturalWidth > 0) {
       ctx.drawImage(sprite, cx - spriteWidth / 2, groundY - jumpOffset - spriteHeight, spriteWidth, spriteHeight);
-    } else {
-      drawFallbackNoob(cx, groundY, spriteWidth, spriteHeight, jumpOffset);
     }
 
+    const displayName = (characterNameInput.value || '').trim().slice(0, 20);
+    if (displayName && sprite && sprite.complete && sprite.naturalWidth > 0) {
+      const nameY = groundY - jumpOffset - spriteHeight - Math.max(10, spriteHeight * 0.045);
+      ctx.save();
+      ctx.font = `600 ${Math.max(12, Math.min(22, spriteHeight * 0.075))}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(0,0,0,.8)';
+      ctx.lineWidth = 4;
+      ctx.strokeText(displayName, cx, nameY);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(displayName, cx, nameY);
+      ctx.restore();
+    }
+
+    const walking = Math.hypot(input.x, input.y) > 0.08;
+    updateWalkSound(walking);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
