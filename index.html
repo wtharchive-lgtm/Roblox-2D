@@ -10,6 +10,11 @@
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #151a22; }
   body { overscroll-behavior: none; user-select: none; -webkit-user-select: none; touch-action: none; }
   #game { display: block; width: 100vw; height: 100vh; width: 100dvw; height: 100dvh; }
+  /* Desktop uses the supplied classic-style cursor PNG when it has loaded. */
+  body.custom-cursor-active, body.custom-cursor-active * { cursor: none !important; }
+  .custom-cursor, .move-marker { position: fixed; z-index: 100; width: 56px; height: 56px; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; display: none; }
+  .custom-cursor { left: 0; top: 0; }
+  .move-marker { z-index: 5; transform: translate(-50%, -50%); }
   /* Small asset controls replace the old large title/instructions popup. */
   .asset-tools { position: fixed; z-index: 6; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); display: flex; gap: 6px; align-items: flex-start; }
   .asset-tools button { border: 1px solid #ffffff55; border-radius: 9px; padding: 8px 10px; color: #fff; background: #111827b8; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); font-size: 11px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
@@ -21,8 +26,9 @@
   .joystick-area { pointer-events: auto; touch-action: none; position: absolute; left: max(20px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom)); width: 142px; height: 142px; border-radius: 50%; background: #0c132c55; border: 2px solid #ffffff66; box-shadow: inset 0 0 0 1px #0003, 0 3px 18px #0002; }
   .joystick-area::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border-radius: 50%; background: #ffffff55; transform: translate(-50%, -50%); }
   .joystick-knob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; border-radius: 50%; transform: translate(-50%, -50%); background: #eaf2ffbd; border: 2px solid #fff; box-shadow: 0 4px 12px #0004; pointer-events: none; }
-  .jump-button { pointer-events: auto; touch-action: none; position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(35px, env(safe-area-inset-bottom)); width: 94px; height: 94px; border-radius: 50%; border: 2px solid #ffffffdc; background: #2476dfc9; color: #fff; font-size: 17px; font-weight: 800; letter-spacing: .6px; box-shadow: 0 5px 18px #0004, inset 0 0 0 4px #ffffff20; }
-  .jump-button:active { background: #4b99ffed; transform: scale(.96); }
+  .jump-button { pointer-events: auto; touch-action: none; position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(35px, env(safe-area-inset-bottom)); width: 94px; height: 94px; padding: 0; border: 0; border-radius: 50%; background: #2476df55; box-shadow: 0 5px 18px #0004; overflow: hidden; }
+  .jump-button img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  .jump-button:active { transform: scale(.94); }
   .rotate-hint { position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(140px, calc(env(safe-area-inset-bottom) + 140px)); color: #ffffffb5; font-size: 11px; text-shadow: 0 1px 3px #000; }
   .name-panel { position: fixed; z-index: 6; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px; border: 1px solid #ffffff55; border-radius: 10px; background: #111827bd; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); max-width: min(52vw, 340px); }
   .name-panel label { color: #fff; font-size: 11px; white-space: nowrap; }
@@ -50,6 +56,8 @@
 </head>
 <body>
 <canvas id="game" aria-label="2D Roblox prototype game area"></canvas>
+<img id="moveMarker" class="move-marker" alt="" aria-hidden="true" draggable="false" />
+<img id="customCursor" class="custom-cursor" alt="" aria-hidden="true" draggable="false" />
 <div class="asset-tools" aria-label="Asset controls">
   <button id="chooseAssetsButton" type="button">Load assets</button>
   <button id="chooseFilesButton" type="button">Choose files</button>
@@ -76,7 +84,7 @@
     <div class="joystick-knob" id="joystickKnob"></div>
   </div>
   <div class="rotate-hint">Stick down = approach camera</div>
-  <button class="jump-button" id="jumpButton" type="button" aria-label="Jump">JUMP</button>
+  <button class="jump-button" id="jumpButton" type="button" aria-label="Jump"><img id="jumpButtonImage" alt="" draggable="false" /></button>
 </div>
 <script>
 (() => {
@@ -99,6 +107,18 @@
   const backgroundOverlay = document.getElementById('backgroundOverlay');
   const backgroundGrid = document.getElementById('backgroundGrid');
   const closeBackgroundsButton = document.getElementById('closeBackgroundsButton');
+  const jumpButtonImage = document.getElementById('jumpButtonImage');
+  const moveMarker = document.getElementById('moveMarker');
+  const customCursor = document.getElementById('customCursor');
+  const hasFinePointer = !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches);
+  let pointerKnown = false;
+  let pointerX = 0;
+  let pointerY = 0;
+  let cursorMode = 'normal';
+  let moveMarkerActive = false;
+  let moveMarkerX = 0;
+  let moveMarkerY = 0;
+  let moveMarkerPointerType = 'touch';
 
   const assetPaths = {
     baseplate: 'Assets/Background/Baseplate.png',
@@ -107,8 +127,12 @@
     left: 'Assets/Noob/Left.png',
     right: 'Assets/Noob/Right.png',
     jumpFront: 'Assets/Noob/JumpFront.png',
-    jumpBack: 'Assets/Noob/JumpBack.png'
+    jumpBack: 'Assets/Noob/JumpBack.png',
+    uiJump: 'Assets/UI/jump.png',
+    uiCursor: 'Assets/UI/cursor.png',
+    uiCursorMove: 'Assets/UI/cursormove.png'
   };
+  const REQUIRED_IMAGE_COUNT = Object.keys(assetPaths).length;
   const soundPaths = { walk: 'Assets/Sounds/walk.mp3', jump: 'Assets/Sounds/jump.mp3', oof: 'Assets/Sounds/oof.mp3' };
   const images = {};
   const sounds = {};
@@ -124,9 +148,9 @@
   function updateAssetStatus() {
     const imageCount = [...loadedAssets].filter(key => !key.startsWith('sound:')).length;
     const soundCount = [...loadedAssets].filter(key => key.startsWith('sound:')).length;
-    assetStatus.style.display = imageCount === 7 ? 'none' : 'block';
-    if (imageCount !== 7) {
-      assetStatus.textContent = `Images: ${imageCount}/7 loaded. Use Load assets or Choose files if needed.`;
+    assetStatus.style.display = imageCount === REQUIRED_IMAGE_COUNT ? 'none' : 'block';
+    if (imageCount !== REQUIRED_IMAGE_COUNT) {
+      assetStatus.textContent = `Images: ${imageCount}/${REQUIRED_IMAGE_COUNT} loaded. Use Load assets or Choose files if needed.`;
     }
     if (failedAssets.size) {
       warning.style.display = 'block';
@@ -147,12 +171,14 @@
       failedAssets.delete(key);
       updateAssetStatus();
       if (key === 'baseplate') renderBackgroundPicker();
+      syncUiAssets();
     };
     img.onerror = () => {
       loadedAssets.delete(key);
       failedAssets.set(key, label || assetPaths[key]);
       updateAssetStatus();
       if (key === 'baseplate') renderBackgroundPicker();
+      syncUiAssets();
     };
     img.src = source;
   }
@@ -160,6 +186,51 @@
   function loadAsset(key, path) {
     setAssetSource(key, path, path);
   }
+
+  function imageIsReady(key) {
+    const img = images[key];
+    return !!(img && img.complete && img.naturalWidth > 0);
+  }
+
+  function syncUiAssets() {
+    if (imageIsReady('uiJump') && jumpButtonImage.src !== images.uiJump.src) {
+      jumpButtonImage.src = images.uiJump.src;
+    }
+
+    if (hasFinePointer && imageIsReady('uiCursor') && pointerKnown) {
+      document.body.classList.add('custom-cursor-active');
+      const chosen = cursorMode === 'move' && imageIsReady('uiCursorMove') ? images.uiCursorMove : images.uiCursor;
+      if (chosen && customCursor.src !== chosen.src) customCursor.src = chosen.src;
+      customCursor.style.display = pointerKnown ? 'block' : 'none';
+    } else {
+      document.body.classList.remove('custom-cursor-active');
+      customCursor.style.display = 'none';
+    }
+
+    if (moveMarkerActive && moveMarkerPointerType !== 'mouse' && imageIsReady('uiCursorMove')) {
+      if (moveMarker.src !== images.uiCursorMove.src) moveMarker.src = images.uiCursorMove.src;
+      moveMarker.style.left = `${moveMarkerX}px`;
+      moveMarker.style.top = `${moveMarkerY}px`;
+      moveMarker.style.display = 'block';
+    } else {
+      moveMarker.style.display = 'none';
+    }
+  }
+
+  function setCursorMode(mode) {
+    cursorMode = mode;
+    syncUiAssets();
+  }
+
+  window.addEventListener('mousemove', event => {
+    if (!hasFinePointer) return;
+    pointerKnown = true;
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    customCursor.style.left = `${pointerX - 5}px`;
+    customCursor.style.top = `${pointerY - 5}px`;
+    syncUiAssets();
+  }, { passive: true });
 
   function addNumberedBackground(number, source, label) {
     if (!Number.isInteger(number) || number < 1) return;
@@ -266,16 +337,39 @@
   }
 
   Object.entries(assetPaths).forEach(([key, path]) => loadAsset(key, path));
+  syncUiAssets();
   discoverNumberedBackgrounds();
+
+  let audioContext = null;
+  const amplifiedWalkElements = new WeakSet();
+  function amplifyWalkAudio(audio) {
+    if (!audio || amplifiedWalkElements.has(audio)) return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    try {
+      if (!audioContext) audioContext = new AudioContextClass();
+      const sourceNode = audioContext.createMediaElementSource(audio);
+      const gainNode = audioContext.createGain();
+      // Boost the walking loop above its source level while leaving other effects unchanged.
+      gainNode.gain.value = 1.65;
+      sourceNode.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      amplifiedWalkElements.add(audio);
+    } catch (_) {
+      // Fall back to ordinary element playback in browsers that disallow Web Audio routing.
+    }
+  }
 
   function setSoundSource(key, source, label) {
     const audio = new Audio();
     audio.preload = 'auto';
+    audio.volume = 1;
     if (key === 'walk') audio.loop = true;
     audio.src = source;
     audio.addEventListener('canplaythrough', () => { loadedAssets.add('sound:' + key); failedAssets.delete('sound:' + key); updateSoundStatus(); }, { once: true });
     audio.addEventListener('error', () => { loadedAssets.delete('sound:' + key); failedAssets.set('sound:' + key, label || soundPaths[key]); updateSoundStatus(); }, { once: true });
     sounds[key] = audio;
+    if (key === 'walk' && audioContext) amplifyWalkAudio(audio);
     audio.load();
   }
   function updateSoundStatus() { updateAssetStatus(); }
@@ -284,10 +378,17 @@
 
   let audioUnlocked = false;
   function unlockAudio() {
-    if (audioUnlocked) return;
-    audioUnlocked = true;
-    // Playback is started only in response to a user gesture, as required by mobile browsers.
-    Object.values(sounds).forEach(audio => { try { audio.load(); } catch (_) {} });
+    // Only prime the audio elements once; calling load() during every walking frame
+    // would restart the sound. Resume the context whenever a browser suspends it.
+    if (!audioUnlocked) {
+      audioUnlocked = true;
+      if (sounds.walk) amplifyWalkAudio(sounds.walk);
+      Object.values(sounds).forEach(audio => { try { audio.load(); } catch (_) {} });
+    }
+    if (audioContext && audioContext.state === 'suspended') {
+      const resumePromise = audioContext.resume();
+      if (resumePromise && resumePromise.catch) resumePromise.catch(() => {});
+    }
   }
   function playSound(key) {
     const audio = sounds[key];
@@ -390,6 +491,57 @@
   const MOVE_SPEED_Y = 0.34; // fraction of screen height per second
   const MIN_X = 0.055, MAX_X = 0.945;
   const MIN_Y = 0.12, MAX_Y = 0.91;
+  let moveTarget = null;
+
+  function clearMoveMarker() {
+    moveMarkerActive = false;
+    moveMarker.style.display = 'none';
+  }
+
+  function clearMoveTarget() {
+    moveTarget = null;
+    clearMoveMarker();
+    setCursorMode('normal');
+  }
+
+  function setMoveTargetFromPoint(clientX, clientY, pointerType) {
+    const targetX = Math.max(MIN_X, Math.min(MAX_X, clientX / Math.max(1, viewW)));
+    const targetY = Math.max(MIN_Y, Math.min(MAX_Y, clientY / Math.max(1, viewH)));
+    if (Math.hypot(targetX - player.x, targetY - player.y) < 0.012) {
+      clearMoveTarget();
+      return;
+    }
+
+    moveTarget = { x: targetX, y: targetY };
+    moveMarkerPointerType = pointerType || 'touch';
+    if (moveMarkerPointerType === 'mouse') {
+      clearMoveMarker();
+      setCursorMode('move');
+    } else {
+      moveMarkerActive = true;
+      moveMarkerX = clientX;
+      moveMarkerY = clientY;
+      syncUiAssets();
+    }
+  }
+
+  // Tapping/clicking the world sets a destination. The target indicator stays
+  // visible on touch screens until the noob arrives; desktop changes the cursor.
+  canvas.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (event.pointerType === 'pen' && event.button !== 0) return;
+    event.preventDefault();
+    unlockAudio();
+    if (event.pointerType === 'mouse' && hasFinePointer) {
+      pointerKnown = true;
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      customCursor.style.left = `${pointerX - 5}px`;
+      customCursor.style.top = `${pointerY - 5}px`;
+      syncUiAssets();
+    }
+    setMoveTargetFromPoint(event.clientX, event.clientY, event.pointerType || 'mouse');
+  }, { passive: false });
 
   function getInput() {
     // PC controls: A = left, D = right, S = toward the camera, W = away.
@@ -427,6 +579,7 @@
 
   function resetPlayer() {
     playSound('oof');
+    clearMoveTarget();
     player.x = 0.5;
     player.y = 0.57;
     player.facing = 'front';
@@ -449,6 +602,7 @@
     if (document.activeElement === characterNameInput) return;
     if (key === ' ' && !event.repeat) { keys.space = true; startJump(); return; }
     if (['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)) {
+      clearMoveTarget();
       keys[key] = true;
       updateFacing(getInput());
     }
@@ -459,6 +613,7 @@
   });
   window.addEventListener('blur', () => {
     Object.keys(keys).forEach(k => keys[k] = false);
+    clearMoveTarget();
     joy.x = joy.y = 0;
     joy.active = false;
     joy.pointerId = null;
@@ -480,6 +635,7 @@
     updateFacing(getInput());
   }
   joystick.addEventListener('pointerdown', event => {
+    clearMoveTarget();
     unlockAudio();
     event.preventDefault();
     joy.active = true;
@@ -518,7 +674,27 @@
   function frame(now) {
     const dt = Math.min((now - previousTime) / 1000, 0.04);
     previousTime = now;
-    const input = getInput();
+    let input = getInput();
+    const hasManualInput = Math.hypot(input.x, input.y) > 0.08;
+    if (hasManualInput && moveTarget) clearMoveTarget();
+
+    if (!hasManualInput && moveTarget) {
+      const dx = moveTarget.x - player.x;
+      const dy = moveTarget.y - player.y;
+      const remainingSeconds = Math.hypot(dx / MOVE_SPEED_X, dy / MOVE_SPEED_Y);
+      if (remainingSeconds <= dt || Math.hypot(dx, dy) < 0.002) {
+        player.x = moveTarget.x;
+        player.y = moveTarget.y;
+        clearMoveTarget();
+        input = { x: 0, y: 0 };
+      } else {
+        const vx = dx / MOVE_SPEED_X;
+        const vy = dy / MOVE_SPEED_Y;
+        const magnitude = Math.hypot(vx, vy) || 1;
+        input = { x: vx / magnitude, y: vy / magnitude };
+      }
+    }
+
     if (Math.abs(input.x) > 0.08 || Math.abs(input.y) > 0.08) updateFacing(input);
     player.x = Math.max(MIN_X, Math.min(MAX_X, player.x + input.x * MOVE_SPEED_X * dt));
     player.y = Math.max(MIN_Y, Math.min(MAX_Y, player.y + input.y * MOVE_SPEED_Y * dt));
