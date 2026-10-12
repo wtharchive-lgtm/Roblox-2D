@@ -35,6 +35,22 @@
   #characterName { width: clamp(90px, 17vw, 190px); min-width: 0; border: 1px solid #ffffff44; border-radius: 6px; padding: 7px 8px; color: #fff; background: #0b1020dd; font: inherit; font-size: 12px; user-select: text; -webkit-user-select: text; touch-action: auto; }
   .reset-button { position: fixed; z-index: 6; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); border: 1px solid #ffffff55; border-radius: 10px; padding: 9px 12px; color: white; background: #111827bd; font-size: 12px; }
   .reset-button:active { background: #36445c; }
+  .btools-button { position: fixed; z-index: 13; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 11px 22px; border: 1px solid #ffffff70; border-radius: 12px; color: #fff; background: #172033e8; box-shadow: 0 5px 18px #0005; font-size: 13px; font-weight: 800; letter-spacing: .2px; cursor: pointer; touch-action: manipulation; }
+  .btools-button:active { background: #34445f; }
+  .btools-panel { position: fixed; z-index: 25; left: 50%; bottom: max(72px, calc(env(safe-area-inset-bottom) + 72px)); transform: translateX(-50%); width: min(370px, calc(100vw - 20px)); max-height: min(46dvh, 390px); overflow: auto; padding: 12px; border: 1px solid #ffffff42; border-radius: 14px; color: #f8fafc; background: #111827f2; box-shadow: 0 16px 45px #0008; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); touch-action: pan-y; }
+  .btools-panel[hidden] { display: none !important; }
+  .btools-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .btools-header h2 { margin: 0; font-size: 16px; }
+  .btools-panel button { border: 1px solid #ffffff36; border-radius: 8px; padding: 8px 10px; color: #fff; background: #ffffff13; font: inherit; font-size: 12px; font-weight: 650; touch-action: manipulation; }
+  .btools-panel button:active { background: #334155; }
+  .btools-panel button:disabled { opacity: .4; }
+  .btools-shapes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  .btools-selected { margin: 10px 0 6px; color: #dbeafe; font-size: 12px; line-height: 1.35; }
+  .btools-scale-row { display: grid; grid-template-columns: auto minmax(60px, 1fr) auto auto; align-items: center; gap: 7px; }
+  .btools-scale-row label { color: #cbd5e1; font-size: 12px; }
+  .btools-scale-row input[type="range"] { width: 100%; min-width: 0; touch-action: pan-x; accent-color: #60a5fa; }
+  .btools-scale-value { min-width: 34px; color: #fff; font-variant-numeric: tabular-nums; font-size: 11px; text-align: center; }
+  .btools-footnote { margin: 9px 0 0; color: #cbd5e1b8; font-size: 10px; line-height: 1.35; }
   .background-overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 18px; background: #030712bf; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
   .background-overlay[hidden] { display: none !important; }
   .background-dialog { width: min(760px, 96vw); max-height: min(82dvh, 760px); overflow: auto; padding: 16px; border: 1px solid #ffffff35; border-radius: 16px; color: #f8fafc; background: #111827f5; box-shadow: 0 18px 60px #0008; touch-action: pan-y; }
@@ -69,6 +85,26 @@
 <span id="assetWarning" role="status"></span>
 <div class="name-panel"><label for="characterName">Name</label><input id="characterName" type="text" maxlength="20" placeholder="Noob" value="Noob" autocomplete="off" /></div>
 <button class="reset-button" id="resetButton" type="button">Reset player</button>
+<button class="btools-button" id="btoolsButton" type="button" aria-expanded="false" aria-controls="btoolsPanel">BTools</button>
+<section class="btools-panel" id="btoolsPanel" hidden aria-label="Building tools">
+  <div class="btools-header">
+    <h2>BTools</h2>
+    <button id="closeBToolsButton" type="button" aria-label="Close BTools">Close ✕</button>
+  </div>
+  <div class="btools-shapes" aria-label="Create a shape">
+    <button id="createTriangleButton" type="button">＋ Triangle</button>
+    <button id="createCubeButton" type="button">＋ Cube</button>
+    <button id="createCircleButton" type="button">＋ Circle</button>
+  </div>
+  <div class="btools-selected" id="btoolsSelected">Select or create a shape. Drag a shape in the world to move it.</div>
+  <div class="btools-scale-row">
+    <label for="btoolsScale">Scale</label>
+    <input id="btoolsScale" type="range" min="0.5" max="3" step="0.1" value="1" disabled />
+    <span class="btools-scale-value" id="btoolsScaleValue">—</span>
+    <button id="deleteShapeButton" type="button" disabled>Delete</button>
+  </div>
+  <p class="btools-footnote">Tap/click a shape to select it; drag it to reposition. Use the scale slider to resize the selected shape.</p>
+</section>
 <div class="background-overlay" id="backgroundOverlay" hidden aria-hidden="true">
   <section class="background-dialog" role="dialog" aria-modal="true" aria-labelledby="backgroundDialogTitle">
     <div class="background-dialog-header">
@@ -110,6 +146,16 @@
   const jumpButtonImage = document.getElementById('jumpButtonImage');
   const moveMarker = document.getElementById('moveMarker');
   const customCursor = document.getElementById('customCursor');
+  const btoolsButton = document.getElementById('btoolsButton');
+  const btoolsPanel = document.getElementById('btoolsPanel');
+  const closeBToolsButton = document.getElementById('closeBToolsButton');
+  const createTriangleButton = document.getElementById('createTriangleButton');
+  const createCubeButton = document.getElementById('createCubeButton');
+  const createCircleButton = document.getElementById('createCircleButton');
+  const btoolsSelected = document.getElementById('btoolsSelected');
+  const btoolsScale = document.getElementById('btoolsScale');
+  const btoolsScaleValue = document.getElementById('btoolsScaleValue');
+  const deleteShapeButton = document.getElementById('deleteShapeButton');
   const hasFinePointer = !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches);
   let pointerKnown = false;
   let pointerX = 0;
@@ -525,12 +571,203 @@
     }
   }
 
+  // Lightweight in-world building objects used by BTools.
+  const worldObjects = [];
+  let nextWorldObjectId = 1;
+  let selectedObjectId = null;
+  let objectDrag = null;
+  const shapeColors = { triangle: '#f4c542', cube: '#4c9aff', circle: '#53d48b' };
+
+  function getWorldObject(id) { return worldObjects.find(object => object.id === id) || null; }
+  function selectedWorldObject() { return getWorldObject(selectedObjectId); }
+  function getObjectSize(object) { return Math.max(24, Math.min(viewW, viewH) * 0.145 * object.scale); }
+  function clamp01Range(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+  function renderBToolsPanel() {
+    const object = selectedWorldObject();
+    if (!object) {
+      btoolsSelected.textContent = worldObjects.length
+        ? `No shape selected · ${worldObjects.length} shape${worldObjects.length === 1 ? '' : 's'} in the world. Tap one to select it.`
+        : 'Select or create a shape. Drag a shape in the world to move it.';
+      btoolsScale.disabled = true;
+      btoolsScaleValue.textContent = '—';
+      deleteShapeButton.disabled = true;
+      return;
+    }
+    btoolsSelected.textContent = `Selected: ${object.type[0].toUpperCase() + object.type.slice(1)} · drag it in the world to reposition.`;
+    btoolsScale.disabled = false;
+    btoolsScale.value = String(object.scale);
+    btoolsScaleValue.textContent = `${object.scale.toFixed(1)}×`;
+    deleteShapeButton.disabled = false;
+  }
+
+  function createWorldObject(type) {
+    const placements = [[0.40, 0.43], [0.60, 0.43], [0.50, 0.32], [0.37, 0.60], [0.63, 0.60], [0.50, 0.24]];
+    const placement = placements[worldObjects.length % placements.length];
+    const object = {
+      id: nextWorldObjectId++, type, x: placement[0], y: placement[1], scale: 1,
+      color: shapeColors[type] || '#ffffff'
+    };
+    worldObjects.push(object);
+    selectedObjectId = object.id;
+    clearMoveTarget();
+    renderBToolsPanel();
+  }
+
+  function toggleBTools(forceOpen) {
+    const open = typeof forceOpen === 'boolean' ? forceOpen : btoolsPanel.hidden;
+    btoolsPanel.hidden = !open;
+    btoolsButton.setAttribute('aria-expanded', String(open));
+    if (open) renderBToolsPanel();
+  }
+  btoolsButton.addEventListener('click', () => toggleBTools());
+  closeBToolsButton.addEventListener('click', () => toggleBTools(false));
+  createTriangleButton.addEventListener('click', () => createWorldObject('triangle'));
+  createCubeButton.addEventListener('click', () => createWorldObject('cube'));
+  createCircleButton.addEventListener('click', () => createWorldObject('circle'));
+  btoolsScale.addEventListener('input', () => {
+    const object = selectedWorldObject();
+    if (!object) return;
+    object.scale = Number(btoolsScale.value);
+    renderBToolsPanel();
+  });
+  deleteShapeButton.addEventListener('click', () => {
+    const index = worldObjects.findIndex(object => object.id === selectedObjectId);
+    if (index < 0) return;
+    worldObjects.splice(index, 1);
+    selectedObjectId = null;
+    objectDrag = null;
+    renderBToolsPanel();
+  });
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !btoolsPanel.hidden) toggleBTools(false);
+  });
+
+  function drawWorldObjects() {
+    for (const object of worldObjects) {
+      const x = object.x * viewW;
+      const y = object.y * viewH;
+      const size = getObjectSize(object);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      if (object.type === 'triangle') {
+        // A bright triangular wedge with a shaded side gives the 2D shape some depth.
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.58);
+        ctx.lineTo(size * 0.58, size * 0.48);
+        ctx.lineTo(-size * 0.58, size * 0.48);
+        ctx.closePath();
+        ctx.fillStyle = object.color;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.58);
+        ctx.lineTo(0, size * 0.48);
+        ctx.lineTo(size * 0.58, size * 0.48);
+        ctx.closePath();
+        ctx.fillStyle = '#00000026';
+        ctx.fill();
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else if (object.type === 'cube') {
+        // Isometric block: top, left and right faces.
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.62);
+        ctx.lineTo(size * 0.55, -size * 0.32);
+        ctx.lineTo(0, -size * 0.02);
+        ctx.lineTo(-size * 0.55, -size * 0.32);
+        ctx.closePath();
+        ctx.fillStyle = '#b9d9ff'; ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.55, -size * 0.32);
+        ctx.lineTo(0, -size * 0.02);
+        ctx.lineTo(0, size * 0.60);
+        ctx.lineTo(-size * 0.55, size * 0.28);
+        ctx.closePath();
+        ctx.fillStyle = object.color; ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.02);
+        ctx.lineTo(size * 0.55, -size * 0.32);
+        ctx.lineTo(size * 0.55, size * 0.28);
+        ctx.lineTo(0, size * 0.60);
+        ctx.closePath();
+        ctx.fillStyle = '#1d4f91'; ctx.fill();
+        ctx.strokeStyle = '#10243d'; ctx.lineWidth = 2; ctx.stroke();
+      } else if (object.type === 'circle') {
+        const gradient = ctx.createRadialGradient(-size * 0.18, -size * 0.23, size * 0.05, 0, 0, size * 0.68);
+        gradient.addColorStop(0, '#d8ffe7');
+        gradient.addColorStop(0.35, object.color);
+        gradient.addColorStop(1, '#176b40');
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.53, 0, Math.PI * 2);
+        ctx.fillStyle = gradient; ctx.fill();
+        ctx.strokeStyle = '#103b28'; ctx.lineWidth = 2; ctx.stroke();
+      }
+      if (object.id === selectedObjectId) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.strokeRect(-size * 0.75, -size * 0.75, size * 1.5, size * 1.5);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ffffff';
+        for (const [hx, hy] of [[-0.75,-0.75],[0.75,-0.75],[-0.75,0.75],[0.75,0.75]]) {
+          ctx.fillRect(hx * size - 3, hy * size - 3, 6, 6);
+        }
+      }
+      ctx.restore();
+    }
+  }
+
+  function hitTestWorldObject(clientX, clientY) {
+    for (let i = worldObjects.length - 1; i >= 0; i--) {
+      const object = worldObjects[i];
+      const x = object.x * viewW;
+      const y = object.y * viewH;
+      const size = getObjectSize(object);
+      const dx = clientX - x;
+      const dy = clientY - y;
+      if (object.type === 'circle') {
+        if (Math.hypot(dx, dy) <= size * 0.58) return object;
+      } else if (Math.abs(dx) <= size * 0.66 && Math.abs(dy) <= size * 0.66) {
+        return object;
+      }
+    }
+    return null;
+  }
+
+  canvas.addEventListener('pointermove', event => {
+    if (!objectDrag || event.pointerId !== objectDrag.pointerId) return;
+    event.preventDefault();
+    const object = getWorldObject(objectDrag.id);
+    if (!object) return;
+    object.x = clamp01Range(event.clientX / Math.max(1, viewW), 0.035, 0.965);
+    object.y = clamp01Range(event.clientY / Math.max(1, viewH), 0.08, 0.94);
+  }, { passive: false });
+  function finishObjectDrag(event) {
+    if (!objectDrag || (event && event.pointerId !== undefined && event.pointerId !== objectDrag.pointerId)) return;
+    objectDrag = null;
+  }
+  canvas.addEventListener('pointerup', finishObjectDrag);
+  canvas.addEventListener('pointercancel', finishObjectDrag);
+  canvas.addEventListener('lostpointercapture', finishObjectDrag);
+
   // Tapping/clicking the world sets a destination. The target indicator stays
   // visible on touch screens until the noob arrives; desktop changes the cursor.
   canvas.addEventListener('pointerdown', event => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if (event.pointerType === 'pen' && event.button !== 0) return;
     event.preventDefault();
+    const hitObject = hitTestWorldObject(event.clientX, event.clientY);
+    if (hitObject) {
+      selectedObjectId = hitObject.id;
+      objectDrag = { id: hitObject.id, pointerId: event.pointerId };
+      clearMoveTarget();
+      try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
+      renderBToolsPanel();
+      return;
+    }
     unlockAudio();
     if (event.pointerType === 'mouse' && hasFinePointer) {
       pointerKnown = true;
@@ -660,14 +897,20 @@
   joystick.addEventListener('pointercancel', releaseJoystick);
   joystick.addEventListener('lostpointercapture', releaseJoystick);
   jumpButton.addEventListener('pointerdown', event => { unlockAudio(); event.preventDefault(); startJump(); });
-  characterNameInput.addEventListener('keydown', event => event.stopPropagation());
+  characterNameInput.addEventListener('keydown', event => {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      characterNameInput.blur();
+    }
+  });
   jumpButton.addEventListener('contextmenu', event => event.preventDefault());
 
   function getSpriteHeight() {
     // Larger character, while preserving the 954x1184 image ratio. The sprite
     // gets distinctly larger as its depth position approaches the camera.
-    const base = Math.min(viewH * 0.46, viewW * 0.69);
-    return base * (0.76 + player.y * 0.66);
+    const base = Math.min(viewH * 0.34, viewW * 0.51);
+    return base * (0.78 + player.y * 0.44);
   }
 
   let previousTime = performance.now();
@@ -721,6 +964,7 @@
       ctx.fillRect(0, 0, viewW, viewH);
     }
 
+    drawWorldObjects();
     const spriteHeight = getSpriteHeight();
     const spriteWidth = spriteHeight * (954 / 1184);
     const cx = player.x * viewW;
