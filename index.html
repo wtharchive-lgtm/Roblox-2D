@@ -37,7 +37,7 @@
   .reset-button:active { background: #36445c; }
   .btools-button { position: fixed; z-index: 13; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 11px 22px; border: 1px solid #ffffff70; border-radius: 12px; color: #fff; background: #172033e8; box-shadow: 0 5px 18px #0005; font-size: 13px; font-weight: 800; letter-spacing: .2px; cursor: pointer; touch-action: manipulation; }
   .btools-button:active { background: #34445f; }
-  .btools-panel { position: fixed; z-index: 25; left: 50%; bottom: max(72px, calc(env(safe-area-inset-bottom) + 72px)); transform: translateX(-50%); width: min(370px, calc(100vw - 20px)); max-height: min(46dvh, 390px); overflow: auto; padding: 12px; border: 1px solid #ffffff42; border-radius: 14px; color: #f8fafc; background: #111827f2; box-shadow: 0 16px 45px #0008; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); touch-action: pan-y; }
+  .btools-panel { position: fixed; z-index: 25; left: 50%; bottom: max(72px, calc(env(safe-area-inset-bottom) + 72px)); transform: translateX(-50%); width: min(390px, calc(100vw - 20px)); max-height: min(58dvh, 470px); overflow: auto; padding: 12px; border: 1px solid #ffffff42; border-radius: 14px; color: #f8fafc; background: #111827f2; box-shadow: 0 16px 45px #0008; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); touch-action: auto; }
   .btools-panel[hidden] { display: none !important; }
   .btools-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
   .btools-header h2 { margin: 0; font-size: 16px; }
@@ -46,10 +46,15 @@
   .btools-panel button:disabled { opacity: .4; }
   .btools-shapes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
   .btools-selected { margin: 10px 0 6px; color: #dbeafe; font-size: 12px; line-height: 1.35; }
-  .btools-scale-row { display: grid; grid-template-columns: auto minmax(60px, 1fr) auto auto; align-items: center; gap: 7px; }
+  .btools-scale-row { display: grid; grid-template-columns: auto 30px minmax(45px, 1fr) 30px auto auto; align-items: center; gap: 6px; }
   .btools-scale-row label { color: #cbd5e1; font-size: 12px; }
   .btools-scale-row input[type="range"] { width: 100%; min-width: 0; touch-action: pan-x; accent-color: #60a5fa; }
-  .btools-scale-value { min-width: 34px; color: #fff; font-variant-numeric: tabular-nums; font-size: 11px; text-align: center; }
+  .btools-scale-value { min-width: 30px; color: #fff; font-variant-numeric: tabular-nums; font-size: 11px; text-align: center; }
+  .btools-color-row { display: flex; align-items: center; gap: 9px; margin-top: 9px; color: #cbd5e1; font-size: 12px; }
+  .btools-color-row input[type="color"] { width: 54px; height: 32px; padding: 2px; border: 1px solid #ffffff50; border-radius: 7px; background: #ffffff10; }
+  .btools-map-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }
+  .btools-map-row button { min-height: 36px; }
+  .btools-scale-row button { min-width: 28px; padding: 7px 0; font-size: 14px; }
   .btools-footnote { margin: 9px 0 0; color: #cbd5e1b8; font-size: 10px; line-height: 1.35; }
   .background-overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 18px; background: #030712bf; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
   .background-overlay[hidden] { display: none !important; }
@@ -93,17 +98,29 @@
   </div>
   <div class="btools-shapes" aria-label="Create a shape">
     <button id="createTriangleButton" type="button">＋ Triangle</button>
-    <button id="createCubeButton" type="button">＋ Cube</button>
+    <button id="createCubeButton" type="button">＋ Square</button>
     <button id="createCircleButton" type="button">＋ Circle</button>
   </div>
   <div class="btools-selected" id="btoolsSelected">Select or create a shape. Drag a shape in the world to move it.</div>
   <div class="btools-scale-row">
     <label for="btoolsScale">Scale</label>
+    <button id="scaleDownButton" type="button" aria-label="Decrease size" disabled>−</button>
     <input id="btoolsScale" type="range" min="0.5" max="3" step="0.1" value="1" disabled />
+    <button id="scaleUpButton" type="button" aria-label="Increase size" disabled>＋</button>
     <span class="btools-scale-value" id="btoolsScaleValue">—</span>
     <button id="deleteShapeButton" type="button" disabled>Delete</button>
   </div>
-  <p class="btools-footnote">Tap/click a shape to select it; drag it to reposition. Use the scale slider to resize the selected shape.</p>
+  <div class="btools-color-row">
+    <label for="btoolsColor">Part color</label>
+    <input id="btoolsColor" type="color" value="#d3d3d3" disabled aria-label="Selected part color" />
+    <span>Recolor the selected part.</span>
+  </div>
+  <div class="btools-map-row">
+    <button id="exportMapButton" type="button">Export Map</button>
+    <button id="importMapButton" type="button">Import Map</button>
+    <input id="mapFilePicker" type="file" accept=".rbx2dm,.json,application/json" hidden />
+  </div>
+  <p class="btools-footnote">All parts are flat 2D shapes. Drag to move, use −/＋ or the slider to resize, and use the color picker to recolor. Parts collide with each other and the Noob. Export Map saves a .rbx2dm file; Import Map loads one.</p>
 </section>
 <div class="background-overlay" id="backgroundOverlay" hidden aria-hidden="true">
   <section class="background-dialog" role="dialog" aria-modal="true" aria-labelledby="backgroundDialogTitle">
@@ -150,12 +167,18 @@
   const btoolsPanel = document.getElementById('btoolsPanel');
   const closeBToolsButton = document.getElementById('closeBToolsButton');
   const createTriangleButton = document.getElementById('createTriangleButton');
-  const createCubeButton = document.getElementById('createCubeButton');
+  const createCubeButton = document.getElementById('createCubeButton'); // UI label says Square
   const createCircleButton = document.getElementById('createCircleButton');
   const btoolsSelected = document.getElementById('btoolsSelected');
   const btoolsScale = document.getElementById('btoolsScale');
   const btoolsScaleValue = document.getElementById('btoolsScaleValue');
+  const scaleDownButton = document.getElementById('scaleDownButton');
+  const scaleUpButton = document.getElementById('scaleUpButton');
+  const btoolsColor = document.getElementById('btoolsColor');
   const deleteShapeButton = document.getElementById('deleteShapeButton');
+  const exportMapButton = document.getElementById('exportMapButton');
+  const importMapButton = document.getElementById('importMapButton');
+  const mapFilePicker = document.getElementById('mapFilePicker');
   const hasFinePointer = !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches);
   let pointerKnown = false;
   let pointerX = 0;
@@ -571,42 +594,48 @@
     }
   }
 
-  // Lightweight in-world building objects used by BTools.
+  // In-world, flat 2D objects. Positions are normalized so maps adapt to screen sizes.
   const worldObjects = [];
   let nextWorldObjectId = 1;
   let selectedObjectId = null;
   let objectDrag = null;
-  const shapeColors = { triangle: '#f4c542', cube: '#4c9aff', circle: '#53d48b' };
+  const DEFAULT_PART_COLOR = '#d3d3d3';
+  const shapeColors = { triangle: DEFAULT_PART_COLOR, square: DEFAULT_PART_COLOR, circle: DEFAULT_PART_COLOR };
 
   function getWorldObject(id) { return worldObjects.find(object => object.id === id) || null; }
   function selectedWorldObject() { return getWorldObject(selectedObjectId); }
   function getObjectSize(object) { return Math.max(24, Math.min(viewW, viewH) * 0.145 * object.scale); }
+  function getObjectRadius(object) { return getObjectSize(object) * (object.type === 'circle' ? 0.52 : 0.55); }
   function clamp01Range(value, min, max) { return Math.max(min, Math.min(max, value)); }
 
   function renderBToolsPanel() {
     const object = selectedWorldObject();
+    const hasObject = !!object;
+    btoolsScale.disabled = !hasObject;
+    scaleDownButton.disabled = !hasObject || object.scale <= 0.5 + 0.001;
+    scaleUpButton.disabled = !hasObject || object.scale >= 3 - 0.001;
+    btoolsColor.disabled = !hasObject;
+    deleteShapeButton.disabled = !hasObject;
     if (!object) {
       btoolsSelected.textContent = worldObjects.length
-        ? `No shape selected · ${worldObjects.length} shape${worldObjects.length === 1 ? '' : 's'} in the world. Tap one to select it.`
+        ? `No shape selected · ${worldObjects.length} part${worldObjects.length === 1 ? '' : 's'} in the world. Tap a part to select it.`
         : 'Select or create a shape. Drag a shape in the world to move it.';
-      btoolsScale.disabled = true;
       btoolsScaleValue.textContent = '—';
-      deleteShapeButton.disabled = true;
       return;
     }
     btoolsSelected.textContent = `Selected: ${object.type[0].toUpperCase() + object.type.slice(1)} · drag it in the world to reposition.`;
-    btoolsScale.disabled = false;
     btoolsScale.value = String(object.scale);
     btoolsScaleValue.textContent = `${object.scale.toFixed(1)}×`;
-    deleteShapeButton.disabled = false;
+    btoolsColor.value = /^#[0-9a-f]{6}$/i.test(object.color) ? object.color : DEFAULT_PART_COLOR;
   }
 
   function createWorldObject(type) {
-    const placements = [[0.40, 0.43], [0.60, 0.43], [0.50, 0.32], [0.37, 0.60], [0.63, 0.60], [0.50, 0.24]];
+    if (!['triangle', 'square', 'circle'].includes(type)) return;
+    const placements = [[0.22, 0.43], [0.78, 0.43], [0.50, 0.25], [0.24, 0.66], [0.76, 0.66], [0.50, 0.20]];
     const placement = placements[worldObjects.length % placements.length];
     const object = {
       id: nextWorldObjectId++, type, x: placement[0], y: placement[1], scale: 1,
-      color: shapeColors[type] || '#ffffff'
+      color: DEFAULT_PART_COLOR, vx: 0, vy: 0
     };
     worldObjects.push(object);
     selectedObjectId = object.id;
@@ -623,13 +652,27 @@
   btoolsButton.addEventListener('click', () => toggleBTools());
   closeBToolsButton.addEventListener('click', () => toggleBTools(false));
   createTriangleButton.addEventListener('click', () => createWorldObject('triangle'));
-  createCubeButton.addEventListener('click', () => createWorldObject('cube'));
+  createCubeButton.addEventListener('click', () => createWorldObject('square'));
   createCircleButton.addEventListener('click', () => createWorldObject('circle'));
-  btoolsScale.addEventListener('input', () => {
+
+  // Keep scale/color gestures inside the tool panel; never treat them as world clicks.
+  [btoolsScale, btoolsColor, scaleDownButton, scaleUpButton, deleteShapeButton, exportMapButton, importMapButton].forEach(control => {
+    control.addEventListener('pointerdown', event => event.stopPropagation());
+    control.addEventListener('click', event => event.stopPropagation());
+  });
+  function setSelectedScale(value) {
     const object = selectedWorldObject();
     if (!object) return;
-    object.scale = Number(btoolsScale.value);
+    object.scale = Math.round(clamp01Range(value, 0.5, 3) * 10) / 10;
     renderBToolsPanel();
+  }
+  btoolsScale.addEventListener('input', () => setSelectedScale(Number(btoolsScale.value)));
+  scaleDownButton.addEventListener('click', () => setSelectedScale((selectedWorldObject()?.scale || 1) - 0.1));
+  scaleUpButton.addEventListener('click', () => setSelectedScale((selectedWorldObject()?.scale || 1) + 0.1));
+  btoolsColor.addEventListener('input', () => {
+    const object = selectedWorldObject();
+    if (!object) return;
+    object.color = /^#[0-9a-f]{6}$/i.test(btoolsColor.value) ? btoolsColor.value : DEFAULT_PART_COLOR;
   });
   deleteShapeButton.addEventListener('click', () => {
     const index = worldObjects.findIndex(object => object.id === selectedObjectId);
@@ -638,6 +681,91 @@
     selectedObjectId = null;
     objectDrag = null;
     renderBToolsPanel();
+  });
+
+  const RBX2DM_FORMAT = 'rbx2dm';
+  function downloadMapFile() {
+    const map = {
+      format: RBX2DM_FORMAT,
+      version: 1,
+      background: currentBackgroundKey === 'Baseplate' ? 'Baseplate' : String(currentBackgroundKey),
+      parts: worldObjects.map(object => ({
+        type: object.type,
+        x: Number(object.x.toFixed(6)),
+        y: Number(object.y.toFixed(6)),
+        scale: Number(object.scale.toFixed(2)),
+        color: /^#[0-9a-f]{6}$/i.test(object.color) ? object.color : DEFAULT_PART_COLOR
+      }))
+    };
+    const blob = new Blob([JSON.stringify(map, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'MyMap.rbx2dm';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    btoolsSelected.textContent = `Exported ${map.parts.length} part${map.parts.length === 1 ? '' : 's'} and background (${map.background}) to MyMap.rbx2dm.`;
+  }
+  exportMapButton.addEventListener('click', downloadMapFile);
+
+  function applyMapBackground(key) {
+    if (key === 'Baseplate') {
+      currentBackgroundKey = 'Baseplate';
+      renderBackgroundPicker();
+      return;
+    }
+    const number = Number(key);
+    if (!Number.isInteger(number) || number < 1 || number > 100) throw new Error('The map contains an invalid background key.');
+    currentBackgroundKey = String(number);
+    if (!extraBackgrounds.has(number)) addNumberedBackground(number, `Assets/Background/${number}.png`, `Background ${number}`);
+    renderBackgroundPicker();
+  }
+
+  function importMapObject(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('The selected file is not a valid RBX2DM map.');
+    if (raw.format && String(raw.format).toLowerCase() !== RBX2DM_FORMAT) throw new Error('Unsupported map format. Choose a .rbx2dm file exported by this game.');
+    if (!Array.isArray(raw.parts)) throw new Error('Map file must contain a parts array.');
+    if (raw.parts.length > 500) throw new Error('This map has more than 500 parts, which exceeds the import limit.');
+    const background = raw.background == null ? 'Baseplate' : String(raw.background);
+    if (background !== 'Baseplate' && (!/^\d{1,3}$/.test(background) || Number(background) < 1 || Number(background) > 100)) throw new Error('The map background must be Baseplate or a numbered background from 1 to 100.');
+    const nextParts = raw.parts.map((part, index) => {
+      if (!part || typeof part !== 'object') throw new Error(`Part ${index + 1} is invalid.`);
+      let type = String(part.type || '').toLowerCase();
+      if (type === 'cube') type = 'square'; // accept maps made by earlier prototypes
+      if (!['triangle', 'square', 'circle'].includes(type)) throw new Error(`Part ${index + 1} has an unsupported shape.`);
+      const x = Number(part.x), y = Number(part.y), scale = Number(part.scale == null ? 1 : part.scale);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(scale)) throw new Error(`Part ${index + 1} has invalid position or scale values.`);
+      const color = typeof part.color === 'string' && /^#[0-9a-f]{6}$/i.test(part.color) ? part.color : DEFAULT_PART_COLOR;
+      return {
+        id: nextWorldObjectId++, type,
+        x: clamp01Range(x, 0.02, 0.98), y: clamp01Range(y, 0.04, 0.96),
+        scale: Math.round(clamp01Range(scale, 0.5, 3) * 10) / 10,
+        color, vx: 0, vy: 0
+      };
+    });
+    // Validate everything before replacing the current map.
+    worldObjects.splice(0, worldObjects.length, ...nextParts);
+    selectedObjectId = nextParts.length ? nextParts[nextParts.length - 1].id : null;
+    objectDrag = null;
+    clearMoveTarget();
+    applyMapBackground(background);
+    renderBToolsPanel();
+    btoolsSelected.textContent = `Imported ${nextParts.length} part${nextParts.length === 1 ? '' : 's'} · background: ${background}.`;
+  }
+  importMapButton.addEventListener('click', () => mapFilePicker.click());
+  mapFilePicker.addEventListener('change', async () => {
+    const file = mapFilePicker.files && mapFilePicker.files[0];
+    if (!file) return;
+    try {
+      const raw = JSON.parse(await file.text());
+      importMapObject(raw);
+    } catch (error) {
+      window.alert(`Could not import map: ${error && error.message ? error.message : 'Unknown error'}`);
+    } finally {
+      mapFilePicker.value = '';
+    }
   });
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape' && !btoolsPanel.hidden) toggleBTools(false);
@@ -651,68 +779,30 @@
       ctx.save();
       ctx.translate(x, y);
       ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.5, Math.min(3, size * 0.035));
+      ctx.strokeStyle = '#777777';
+      ctx.fillStyle = /^#[0-9a-f]{6}$/i.test(object.color) ? object.color : DEFAULT_PART_COLOR;
+      ctx.beginPath();
       if (object.type === 'triangle') {
-        // A bright triangular wedge with a shaded side gives the 2D shape some depth.
-        ctx.beginPath();
-        ctx.moveTo(0, -size * 0.58);
-        ctx.lineTo(size * 0.58, size * 0.48);
-        ctx.lineTo(-size * 0.58, size * 0.48);
+        ctx.moveTo(0, -size * 0.56);
+        ctx.lineTo(size * 0.56, size * 0.48);
+        ctx.lineTo(-size * 0.56, size * 0.48);
         ctx.closePath();
-        ctx.fillStyle = object.color;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(0, -size * 0.58);
-        ctx.lineTo(0, size * 0.48);
-        ctx.lineTo(size * 0.58, size * 0.48);
-        ctx.closePath();
-        ctx.fillStyle = '#00000026';
-        ctx.fill();
-        ctx.strokeStyle = '#111827';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      } else if (object.type === 'cube') {
-        // Isometric block: top, left and right faces.
-        ctx.beginPath();
-        ctx.moveTo(0, -size * 0.62);
-        ctx.lineTo(size * 0.55, -size * 0.32);
-        ctx.lineTo(0, -size * 0.02);
-        ctx.lineTo(-size * 0.55, -size * 0.32);
-        ctx.closePath();
-        ctx.fillStyle = '#b9d9ff'; ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(-size * 0.55, -size * 0.32);
-        ctx.lineTo(0, -size * 0.02);
-        ctx.lineTo(0, size * 0.60);
-        ctx.lineTo(-size * 0.55, size * 0.28);
-        ctx.closePath();
-        ctx.fillStyle = object.color; ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(0, -size * 0.02);
-        ctx.lineTo(size * 0.55, -size * 0.32);
-        ctx.lineTo(size * 0.55, size * 0.28);
-        ctx.lineTo(0, size * 0.60);
-        ctx.closePath();
-        ctx.fillStyle = '#1d4f91'; ctx.fill();
-        ctx.strokeStyle = '#10243d'; ctx.lineWidth = 2; ctx.stroke();
+      } else if (object.type === 'square') {
+        ctx.rect(-size * 0.5, -size * 0.5, size, size);
       } else if (object.type === 'circle') {
-        const gradient = ctx.createRadialGradient(-size * 0.18, -size * 0.23, size * 0.05, 0, 0, size * 0.68);
-        gradient.addColorStop(0, '#d8ffe7');
-        gradient.addColorStop(0.35, object.color);
-        gradient.addColorStop(1, '#176b40');
-        ctx.beginPath();
-        ctx.arc(0, 0, size * 0.53, 0, Math.PI * 2);
-        ctx.fillStyle = gradient; ctx.fill();
-        ctx.strokeStyle = '#103b28'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.arc(0, 0, size * 0.52, 0, Math.PI * 2);
       }
+      ctx.fill();
+      ctx.stroke();
       if (object.id === selectedObjectId) {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 4]);
-        ctx.strokeRect(-size * 0.75, -size * 0.75, size * 1.5, size * 1.5);
+        ctx.strokeRect(-size * 0.72, -size * 0.72, size * 1.44, size * 1.44);
         ctx.setLineDash([]);
         ctx.fillStyle = '#ffffff';
-        for (const [hx, hy] of [[-0.75,-0.75],[0.75,-0.75],[-0.75,0.75],[0.75,0.75]]) {
+        for (const [hx, hy] of [[-0.72,-0.72],[0.72,-0.72],[-0.72,0.72],[0.72,0.72]]) {
           ctx.fillRect(hx * size - 3, hy * size - 3, 6, 6);
         }
       }
@@ -729,8 +819,11 @@
       const dx = clientX - x;
       const dy = clientY - y;
       if (object.type === 'circle') {
-        if (Math.hypot(dx, dy) <= size * 0.58) return object;
-      } else if (Math.abs(dx) <= size * 0.66 && Math.abs(dy) <= size * 0.66) {
+        if (Math.hypot(dx, dy) <= size * 0.56) return object;
+      } else if (object.type === 'triangle') {
+        // Use a forgiving bound so small touch targets are still easy to select.
+        if (Math.abs(dx) <= size * 0.62 && Math.abs(dy) <= size * 0.60) return object;
+      } else if (Math.abs(dx) <= size * 0.56 && Math.abs(dy) <= size * 0.56) {
         return object;
       }
     }
@@ -744,6 +837,7 @@
     if (!object) return;
     object.x = clamp01Range(event.clientX / Math.max(1, viewW), 0.035, 0.965);
     object.y = clamp01Range(event.clientY / Math.max(1, viewH), 0.08, 0.94);
+    object.vx = 0; object.vy = 0;
   }, { passive: false });
   function finishObjectDrag(event) {
     if (!objectDrag || (event && event.pointerId !== undefined && event.pointerId !== objectDrag.pointerId)) return;
@@ -752,6 +846,102 @@
   canvas.addEventListener('pointerup', finishObjectDrag);
   canvas.addEventListener('pointercancel', finishObjectDrag);
   canvas.addEventListener('lostpointercapture', finishObjectDrag);
+
+  // Simple 2D rigid-body-like physics: player pushes parts, parts collide with
+  // one another, and motion fades with friction. Depth is the vertical screen axis.
+  function objectCenter(object) { return { x: object.x * viewW, y: object.y * viewH }; }
+  function clampObjectToViewport(object, radius) {
+    const minX = Math.min(viewW / 2, radius + 1), maxX = Math.max(viewW / 2, viewW - radius - 1);
+    const minY = Math.min(viewH / 2, radius + 1), maxY = Math.max(viewH / 2, viewH - radius - 1);
+    let px = object.x * viewW, py = object.y * viewH;
+    if (px < minX) { px = minX; object.vx = Math.abs(object.vx) * 0.25; }
+    if (px > maxX) { px = maxX; object.vx = -Math.abs(object.vx) * 0.25; }
+    if (py < minY) { py = minY; object.vy = Math.abs(object.vy) * 0.25; }
+    if (py > maxY) { py = maxY; object.vy = -Math.abs(object.vy) * 0.25; }
+    object.x = px / Math.max(1, viewW);
+    object.y = py / Math.max(1, viewH);
+  }
+
+  function stepWorldPhysics(dt, input) {
+    const draggedId = objectDrag ? objectDrag.id : null;
+    const friction = Math.exp(-4.0 * dt);
+    for (const object of worldObjects) {
+      if (object.id === draggedId) { object.vx = 0; object.vy = 0; continue; }
+      object.vx = Number.isFinite(object.vx) ? object.vx : 0;
+      object.vy = Number.isFinite(object.vy) ? object.vy : 0;
+      object.x += object.vx * dt / Math.max(1, viewW);
+      object.y += object.vy * dt / Math.max(1, viewH);
+      clampObjectToViewport(object, getObjectRadius(object));
+      object.vx *= friction;
+      object.vy *= friction;
+      if (Math.abs(object.vx) < 3) object.vx = 0;
+      if (Math.abs(object.vy) < 3) object.vy = 0;
+    }
+
+    // Resolve part-to-part collisions. Large overlaps separate proportionally;
+    // touching parts exchange some normal velocity, like low-bounce blocks.
+    for (let i = 0; i < worldObjects.length; i++) {
+      for (let j = i + 1; j < worldObjects.length; j++) {
+        const a = worldObjects[i], b = worldObjects[j];
+        const aDragged = a.id === draggedId, bDragged = b.id === draggedId;
+        const ac = objectCenter(a), bc = objectCenter(b);
+        let dx = bc.x - ac.x, dy = bc.y - ac.y;
+        let distance = Math.hypot(dx, dy);
+        const minDistance = getObjectRadius(a) + getObjectRadius(b);
+        if (distance >= minDistance) continue;
+        if (distance < 0.001) { dx = 1; dy = 0; distance = 1; }
+        const nx = dx / distance, ny = dy / distance;
+        const overlap = minDistance - distance;
+        if (!aDragged && !bDragged) {
+          a.x -= nx * overlap * 0.5 / viewW; a.y -= ny * overlap * 0.5 / viewH;
+          b.x += nx * overlap * 0.5 / viewW; b.y += ny * overlap * 0.5 / viewH;
+        } else if (!aDragged) {
+          a.x -= nx * overlap / viewW; a.y -= ny * overlap / viewH;
+        } else if (!bDragged) {
+          b.x += nx * overlap / viewW; b.y += ny * overlap / viewH;
+        }
+        const relativeNormal = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+        if (relativeNormal > 0) {
+          const impulse = relativeNormal * 0.62 / (aDragged || bDragged ? 1 : 2);
+          if (!aDragged) { a.vx -= impulse * nx; a.vy -= impulse * ny; }
+          if (!bDragged) { b.vx += impulse * nx; b.vy += impulse * ny; }
+        }
+        clampObjectToViewport(a, getObjectRadius(a));
+        clampObjectToViewport(b, getObjectRadius(b));
+      }
+    }
+
+    // The Noob acts as a movable body. Walking into a part pushes it; parts
+    // block the Noob until it moves around them or jumps over them.
+    if (player.jumping || !worldObjects.length) return;
+    const spriteH = getSpriteHeight();
+    const playerX = player.x * viewW;
+    const playerY = player.y * viewH - spriteH * 0.48;
+    const spriteW = spriteH * (954 / 1184);
+    const playerRadius = Math.max(10, spriteW * 0.31);
+    const playerVX = input.x * MOVE_SPEED_X * viewW;
+    const playerVY = input.y * MOVE_SPEED_Y * viewH;
+    for (const object of worldObjects) {
+      const center = objectCenter(object);
+      let dx = player.x * viewW - center.x;
+      let dy = player.y * viewH - getSpriteHeight() * 0.48 - center.y;
+      let distance = Math.hypot(dx, dy);
+      const minDistance = playerRadius + getObjectRadius(object);
+      if (distance >= minDistance) continue;
+      if (distance < 0.001) { dx = 1; dy = 0; distance = 1; }
+      const nx = dx / distance, ny = dy / distance;
+      const overlap = minDistance - distance;
+      const correctedCenterX = player.x * viewW + nx * overlap;
+      const correctedCenterY = player.y * viewH - spriteH * 0.48 + ny * overlap;
+      player.x = clamp01Range(correctedCenterX / viewW, MIN_X, MAX_X);
+      player.y = clamp01Range((correctedCenterY + spriteH * 0.48) / viewH, MIN_Y, MAX_Y);
+      const approachSpeed = Math.max(0, -(playerVX * nx + playerVY * ny));
+      if (approachSpeed > 0) {
+        object.vx += -nx * approachSpeed * 0.78;
+        object.vy += -ny * approachSpeed * 0.78;
+      }
+    }
+  }
 
   // Tapping/clicking the world sets a destination. The target indicator stays
   // visible on touch screens until the noob arrives; desktop changes the cursor.
@@ -762,6 +952,7 @@
     const hitObject = hitTestWorldObject(event.clientX, event.clientY);
     if (hitObject) {
       selectedObjectId = hitObject.id;
+      hitObject.vx = 0; hitObject.vy = 0;
       objectDrag = { id: hitObject.id, pointerId: event.pointerId };
       clearMoveTarget();
       try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
@@ -941,6 +1132,7 @@
     if (Math.abs(input.x) > 0.08 || Math.abs(input.y) > 0.08) updateFacing(input);
     player.x = Math.max(MIN_X, Math.min(MAX_X, player.x + input.x * MOVE_SPEED_X * dt));
     player.y = Math.max(MIN_Y, Math.min(MAX_Y, player.y + input.y * MOVE_SPEED_Y * dt));
+    stepWorldPhysics(dt, input);
 
     let jumpProgress = 0, jumpOffset = 0;
     if (player.jumping) {
