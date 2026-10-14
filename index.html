@@ -136,7 +136,7 @@
   <div class="joystick-area" id="joystick" aria-label="Movement joystick">
     <div class="joystick-knob" id="joystickKnob"></div>
   </div>
-  <div class="rotate-hint">Stick down = approach camera</div>
+  <div class="rotate-hint">Stick down = grow · up = shrink</div>
   <button class="jump-button" id="jumpButton" type="button" aria-label="Jump"><img id="jumpButtonImage" alt="" draggable="false" /></button>
 </div>
 <script>
@@ -547,7 +547,10 @@
 
   const player = {
     x: 0.5,
-    y: 0.57,
+    // In experimental depth mode the feet stay anchored slightly below center.
+    y: 0.59,
+    // Depth affects sprite size only: 0 = farther/smaller, 1 = nearer/larger.
+    depth: 0.5,
     facing: 'front',
     jumping: false,
     jumpStarted: 0,
@@ -557,9 +560,9 @@
   const keys = Object.create(null);
   const joy = { active: false, pointerId: null, x: 0, y: 0 };
   const MOVE_SPEED_X = 0.43; // fraction of screen width per second
-  const MOVE_SPEED_Y = 0.34; // fraction of screen height per second
+  const MOVE_SPEED_DEPTH = 0.34; // depth/scale fraction per second
   const MIN_X = 0.055, MAX_X = 0.945;
-  const MIN_Y = 0.12, MAX_Y = 0.91;
+  const MIN_DEPTH = 0.02, MAX_DEPTH = 0.98;
   let moveTarget = null;
 
   function clearMoveMarker() {
@@ -574,14 +577,16 @@
   }
 
   function setMoveTargetFromPoint(clientX, clientY, pointerType) {
-    const targetX = Math.max(MIN_X, Math.min(MAX_X, clientX / Math.max(1, viewW)));
-    const targetY = Math.max(MIN_Y, Math.min(MAX_Y, clientY / Math.max(1, viewH)));
-    if (Math.hypot(targetX - player.x, targetY - player.y) < 0.012) {
+    const targetX = clamp01Range(clientX / Math.max(1, viewW), MIN_X, MAX_X);
+    // Click-to-move keeps the character's screen anchor fixed. The clicked Y
+    // chooses a depth/size target instead of a new screen position.
+    const targetDepth = clamp01Range(clientY / Math.max(1, viewH), MIN_DEPTH, MAX_DEPTH);
+    if (Math.hypot(targetX - player.x, targetDepth - player.depth) < 0.012) {
       clearMoveTarget();
       return;
     }
 
-    moveTarget = { x: targetX, y: targetY };
+    moveTarget = { x: targetX, depth: targetDepth };
     moveMarkerPointerType = pointerType || 'touch';
     if (moveMarkerPointerType === 'mouse') {
       clearMoveMarker();
@@ -847,8 +852,9 @@
   canvas.addEventListener('pointercancel', finishObjectDrag);
   canvas.addEventListener('lostpointercapture', finishObjectDrag);
 
-  // Simple 2D rigid-body-like physics: player pushes parts, parts collide with
-  // one another, and motion fades with friction. Depth is the vertical screen axis.
+  // Simple 2D rigid-body-like physics: parts collide with one another and the
+  // Noob. In experimental depth mode the Noob's screen Y is fixed; forward/back
+  // input changes its scale instead of moving its feet up or down the screen.
   function objectCenter(object) { return { x: object.x * viewW, y: object.y * viewH }; }
   function clampObjectToViewport(object, radius) {
     const minX = Math.min(viewW / 2, radius + 1), maxX = Math.max(viewW / 2, viewW - radius - 1);
@@ -911,35 +917,25 @@
       }
     }
 
-    // The Noob acts as a movable body. Walking into a part pushes it; parts
-    // block the Noob until it moves around them or jumps over them.
+    // The Noob can push parts, but its feet remain at the same screen Y.
+    // Overlaps are resolved sideways only so collisions cannot undo the fixed anchor.
     if (player.jumping || !worldObjects.length) return;
     const spriteH = getSpriteHeight();
-    const playerX = player.x * viewW;
-    const playerY = player.y * viewH - spriteH * 0.48;
     const spriteW = spriteH * (954 / 1184);
     const playerRadius = Math.max(10, spriteW * 0.31);
     const playerVX = input.x * MOVE_SPEED_X * viewW;
-    const playerVY = input.y * MOVE_SPEED_Y * viewH;
     for (const object of worldObjects) {
       const center = objectCenter(object);
-      let dx = player.x * viewW - center.x;
-      let dy = player.y * viewH - getSpriteHeight() * 0.48 - center.y;
-      let distance = Math.hypot(dx, dy);
+      const dx = player.x * viewW - center.x;
+      const dy = player.y * viewH - spriteH * 0.48 - center.y;
+      const distance = Math.hypot(dx, dy);
       const minDistance = playerRadius + getObjectRadius(object);
       if (distance >= minDistance) continue;
-      if (distance < 0.001) { dx = 1; dy = 0; distance = 1; }
-      const nx = dx / distance, ny = dy / distance;
+      const nx = Math.abs(dx) > 0.001 ? Math.sign(dx) : (input.x >= 0 ? -1 : 1);
       const overlap = minDistance - distance;
-      const correctedCenterX = player.x * viewW + nx * overlap;
-      const correctedCenterY = player.y * viewH - spriteH * 0.48 + ny * overlap;
-      player.x = clamp01Range(correctedCenterX / viewW, MIN_X, MAX_X);
-      player.y = clamp01Range((correctedCenterY + spriteH * 0.48) / viewH, MIN_Y, MAX_Y);
-      const approachSpeed = Math.max(0, -(playerVX * nx + playerVY * ny));
-      if (approachSpeed > 0) {
-        object.vx += -nx * approachSpeed * 0.78;
-        object.vy += -ny * approachSpeed * 0.78;
-      }
+      player.x = clamp01Range((player.x * viewW + nx * overlap) / viewW, MIN_X, MAX_X);
+      const approachSpeed = Math.max(0, -(playerVX * nx));
+      if (approachSpeed > 0) object.vx += -nx * approachSpeed * 0.78;
     }
   }
 
@@ -972,8 +968,8 @@
   }, { passive: false });
 
   function getInput() {
-    // PC controls: A = left, D = right, S = toward the camera, W = away.
-    // Arrow keys retain conventional directions; touch joystick axes are unchanged.
+    // PC controls: A = left, D = right, S = toward camera (grow), W = away (shrink).
+    // Horizontal position is unchanged by depth input; touch joystick axes match this.
     let x = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0) + joy.x;
     let y = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0) + joy.y;
     const length = Math.hypot(x, y);
@@ -1009,7 +1005,8 @@
     playSound('oof');
     clearMoveTarget();
     player.x = 0.5;
-    player.y = 0.57;
+    player.y = 0.59;
+    player.depth = 0.5;
     player.facing = 'front';
     player.jumping = false;
     player.jumpStarted = 0;
@@ -1098,10 +1095,10 @@
   jumpButton.addEventListener('contextmenu', event => event.preventDefault());
 
   function getSpriteHeight() {
-    // Larger character, while preserving the 954x1184 image ratio. The sprite
-    // gets distinctly larger as its depth position approaches the camera.
+    // Experimental depth illusion: keep the sprite's feet at player.y, and
+    // change only its size. Default depth 0.5 preserves approximately the old size.
     const base = Math.min(viewH * 0.34, viewW * 0.51);
-    return base * (0.78 + player.y * 0.44);
+    return base * (0.78 + player.depth * 0.44);
   }
 
   let previousTime = performance.now();
@@ -1114,24 +1111,25 @@
 
     if (!hasManualInput && moveTarget) {
       const dx = moveTarget.x - player.x;
-      const dy = moveTarget.y - player.y;
-      const remainingSeconds = Math.hypot(dx / MOVE_SPEED_X, dy / MOVE_SPEED_Y);
-      if (remainingSeconds <= dt || Math.hypot(dx, dy) < 0.002) {
+      const depthDelta = moveTarget.depth - player.depth;
+      const remainingSeconds = Math.hypot(dx / MOVE_SPEED_X, depthDelta / MOVE_SPEED_DEPTH);
+      if (remainingSeconds <= dt || Math.hypot(dx, depthDelta) < 0.002) {
         player.x = moveTarget.x;
-        player.y = moveTarget.y;
+        player.depth = moveTarget.depth;
         clearMoveTarget();
         input = { x: 0, y: 0 };
       } else {
         const vx = dx / MOVE_SPEED_X;
-        const vy = dy / MOVE_SPEED_Y;
+        const vy = depthDelta / MOVE_SPEED_DEPTH;
         const magnitude = Math.hypot(vx, vy) || 1;
         input = { x: vx / magnitude, y: vy / magnitude };
       }
     }
 
     if (Math.abs(input.x) > 0.08 || Math.abs(input.y) > 0.08) updateFacing(input);
-    player.x = Math.max(MIN_X, Math.min(MAX_X, player.x + input.x * MOVE_SPEED_X * dt));
-    player.y = Math.max(MIN_Y, Math.min(MAX_Y, player.y + input.y * MOVE_SPEED_Y * dt));
+    player.x = clamp01Range(player.x + input.x * MOVE_SPEED_X * dt, MIN_X, MAX_X);
+    player.depth = clamp01Range(player.depth + input.y * MOVE_SPEED_DEPTH * dt, MIN_DEPTH, MAX_DEPTH);
+    // player.y intentionally never changes during movement: depth input is scale-only.
     stepWorldPhysics(dt, input);
 
     let jumpProgress = 0, jumpOffset = 0;
