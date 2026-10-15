@@ -547,10 +547,10 @@
 
   const player = {
     x: 0.5,
-    // In experimental depth mode the feet stay anchored slightly below center.
+    // Match the reference DynaBlocks project: the feet stay anchored slightly
+    // below screen centre while forward/back movement changes size only.
     y: 0.59,
-    // Depth affects sprite size only: 0 = farther/smaller, 1 = nearer/larger.
-    depth: 0.5,
+    sizePercent: 100,
     facing: 'front',
     jumping: false,
     jumpStarted: 0,
@@ -560,9 +560,12 @@
   const keys = Object.create(null);
   const joy = { active: false, pointerId: null, x: 0, y: 0 };
   const MOVE_SPEED_X = 0.43; // fraction of screen width per second
-  const MOVE_SPEED_DEPTH = 0.34; // depth/scale fraction per second
+  // The reference Scratch project changes size by 5 percentage points each
+  // tick at about 30 ticks/second. This reproduces that rate independent of FPS.
+  const MOVE_SPEED_SIZE = 150; // size percentage points per second
+  const MIN_SIZE_PERCENT = 20, MAX_SIZE_PERCENT = 300;
+  const MIN_CLICK_SIZE_PERCENT = 20, MAX_CLICK_SIZE_PERCENT = 180;
   const MIN_X = 0.055, MAX_X = 0.945;
-  const MIN_DEPTH = 0.02, MAX_DEPTH = 0.98;
   let moveTarget = null;
 
   function clearMoveMarker() {
@@ -578,15 +581,16 @@
 
   function setMoveTargetFromPoint(clientX, clientY, pointerType) {
     const targetX = clamp01Range(clientX / Math.max(1, viewW), MIN_X, MAX_X);
-    // Click-to-move keeps the character's screen anchor fixed. The clicked Y
-    // chooses a depth/size target instead of a new screen position.
-    const targetDepth = clamp01Range(clientY / Math.max(1, viewH), MIN_DEPTH, MAX_DEPTH);
-    if (Math.hypot(targetX - player.x, targetDepth - player.depth) < 0.012) {
+    // In the DynaBlocks-style scheme, a click higher in the scene targets a
+    // smaller size and a click lower targets a larger size; the feet never move.
+    const normalizedY = clamp01Range(clientY / Math.max(1, viewH), 0, 1);
+    const targetSizePercent = MIN_CLICK_SIZE_PERCENT + normalizedY * (MAX_CLICK_SIZE_PERCENT - MIN_CLICK_SIZE_PERCENT);
+    if (Math.abs(targetX - player.x) < 0.006 && Math.abs(targetSizePercent - player.sizePercent) < 2) {
       clearMoveTarget();
       return;
     }
 
-    moveTarget = { x: targetX, depth: targetDepth };
+    moveTarget = { x: targetX, sizePercent: targetSizePercent };
     moveMarkerPointerType = pointerType || 'touch';
     if (moveMarkerPointerType === 'mouse') {
       clearMoveMarker();
@@ -968,13 +972,11 @@
   }, { passive: false });
 
   function getInput() {
-    // PC controls: A = left, D = right, S = toward camera (grow), W = away (shrink).
-    // Horizontal position is unchanged by depth input; touch joystick axes match this.
-    let x = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0) + joy.x;
-    let y = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0) + joy.y;
-    const length = Math.hypot(x, y);
-    if (length > 1) { x /= length; y /= length; }
-    return { x, y };
+    // Reference DynaBlocks controls: A/D change X, S grows toward camera,
+    // W shrinks away from camera. Each axis can act at full speed together.
+    const x = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0) + joy.x;
+    const y = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0) + joy.y;
+    return { x: clamp01Range(x, -1, 1), y: clamp01Range(y, -1, 1) };
   }
 
   function updateFacing(input) {
@@ -1006,7 +1008,7 @@
     clearMoveTarget();
     player.x = 0.5;
     player.y = 0.59;
-    player.depth = 0.5;
+    player.sizePercent = 100;
     player.facing = 'front';
     player.jumping = false;
     player.jumpStarted = 0;
@@ -1095,10 +1097,10 @@
   jumpButton.addEventListener('contextmenu', event => event.preventDefault());
 
   function getSpriteHeight() {
-    // Experimental depth illusion: keep the sprite's feet at player.y, and
-    // change only its size. Default depth 0.5 preserves approximately the old size.
+    // Size is the same percentage-style value used by the DynaBlocks reference.
+    // Drawing still anchors the sprite's feet to player.y at every scale.
     const base = Math.min(viewH * 0.34, viewW * 0.51);
-    return base * (0.78 + player.depth * 0.44);
+    return base * (player.sizePercent / 100);
   }
 
   let previousTime = performance.now();
@@ -1111,16 +1113,16 @@
 
     if (!hasManualInput && moveTarget) {
       const dx = moveTarget.x - player.x;
-      const depthDelta = moveTarget.depth - player.depth;
-      const remainingSeconds = Math.hypot(dx / MOVE_SPEED_X, depthDelta / MOVE_SPEED_DEPTH);
-      if (remainingSeconds <= dt || Math.hypot(dx, depthDelta) < 0.002) {
+      const sizeDelta = moveTarget.sizePercent - player.sizePercent;
+      const remainingSeconds = Math.hypot(dx / MOVE_SPEED_X, sizeDelta / MOVE_SPEED_SIZE);
+      if (remainingSeconds <= dt || (Math.abs(dx) < 0.002 && Math.abs(sizeDelta) < 0.5)) {
         player.x = moveTarget.x;
-        player.depth = moveTarget.depth;
+        player.sizePercent = moveTarget.sizePercent;
         clearMoveTarget();
         input = { x: 0, y: 0 };
       } else {
         const vx = dx / MOVE_SPEED_X;
-        const vy = depthDelta / MOVE_SPEED_DEPTH;
+        const vy = sizeDelta / MOVE_SPEED_SIZE;
         const magnitude = Math.hypot(vx, vy) || 1;
         input = { x: vx / magnitude, y: vy / magnitude };
       }
@@ -1128,8 +1130,9 @@
 
     if (Math.abs(input.x) > 0.08 || Math.abs(input.y) > 0.08) updateFacing(input);
     player.x = clamp01Range(player.x + input.x * MOVE_SPEED_X * dt, MIN_X, MAX_X);
-    player.depth = clamp01Range(player.depth + input.y * MOVE_SPEED_DEPTH * dt, MIN_DEPTH, MAX_DEPTH);
-    // player.y intentionally never changes during movement: depth input is scale-only.
+    // S/down raises size by about five percentage points per 30 FPS tick; W/up
+    // reduces it at the same rate. The screen anchor never changes.
+    player.sizePercent = clamp01Range(player.sizePercent + input.y * MOVE_SPEED_SIZE * dt, MIN_SIZE_PERCENT, MAX_SIZE_PERCENT);
     stepWorldPhysics(dt, input);
 
     let jumpProgress = 0, jumpOffset = 0;
